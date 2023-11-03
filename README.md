@@ -21,44 +21,11 @@ https://github.com/antimatter15/splat/assets/30054/878d5d34-e0a7-4336-85df-111ff
 
 ## controls
 
-movement (arrow keys)
-
-- left/right arrow keys to strafe side to side
-- up/down arrow keys to move forward/back
-- `space` to jump
-
-camera angle (wasd)
-
-- `a`/`d` to turn camera left/right
-- `w`/`s` to tilt camera up/down
-- `q`/`e` to roll camera counterclockwise/clockwise
-- `i`/`k` and `j`/`l` to orbit
-
-trackpad
-- scroll up/down to orbit down
-- scroll left/right to orbit left/right
-- pinch to move forward/back
-- ctrl key + scroll up/down to move forward/back
-- shift + scroll up/down to move up/down
-- shift + scroll left/right to strafe side to side
-
-mouse
-- click and drag to orbit
-- right click (or ctrl/cmd key) and drag up/down to move forward/back
-- right click (or ctrl/cmd key) and drag left/right to strafe side to side
-
-touch (mobile)
-- one finger to orbit
-- two finger pinch to move forward/back
-- two finger rotate to rotate camera clockwise/counterclockwise
-- two finger pan to move side-to-side and up-down
-
-other
-- press 0-9 to switch to one of the pre-loaded camera views
-- press `p` to resume default animation
+THREE JS mouse orbit controls, turntable rotation, assuming Y-is-up by default
 
 ## other features
 
+- add `z_is_up=true` URL parameter to change the world coordinate system from Y-is-up to Z-is-up
 - press `v` to save the current view coordinates to the url
 - open custom `.splat` files by adding a `url` param to a CORS-enabled URL
 - drag and drop a `.ply` file which has been processed with the 3d gaussian splatting software onto the page and it will automatically convert the file to the `.splat` format

@@ -155,6 +155,102 @@ let cameras = [
 	},
 ];
 
+function DynamicCamera(orbitEl, zIsUp, {
+  phiRad = 0, thetaRad = 0, distance = 2, target = [0, 0, 0]
+} = {}) {
+  // parameters not used in practice
+  const camera = new THREE.PerspectiveCamera(45, 640 / 480, 1, 10000);
+  camera.up = new THREE.Vector3(0, 1, 0);
+  camera.position.y = 1;
+
+  const orbitControls = new THREE.OrbitControls(camera, orbitEl);
+  orbitControls.update();
+
+  const sp = new THREE.Spherical();
+  sp.radius = orbitControls.getDistance();
+  sp.phi = orbitControls.getPolarAngle();
+  sp.theta = orbitControls.getAzimuthalAngle();
+
+  sp.phi = Math.PI / 2 - phiRad;
+  sp.theta = thetaRad - Math.PI / 2;
+  sp.radius = distance;
+  orbitControls.object.position.setFromSpherical(sp);
+  orbitControls.update();
+
+  let changed = true;
+
+  orbitControls.addEventListener('change', () => {
+    changed = true;
+  });
+
+  this.wasChanged = () => {
+    const was = changed;
+    changed = false;
+    return was;
+  };
+
+  this.getViewMatrix = () => {
+    const a1 = -orbitControls.getAzimuthalAngle();
+    const a2 = Math.PI / 2 - orbitControls.getPolarAngle();
+    const d = orbitControls.getDistance();
+
+    const rotAzimuth = [[Math.cos(a1), Math.sin(a1)], [-Math.sin(a1), Math.cos(a1)]];
+
+    function applyRotAzimuth(v) {
+      const r = rotAzimuth;
+      return [r[0][0] * v[0] + r[0][1] * v[1], r[1][0] * v[0] + r[1][1] * v[1], v[2]];
+    };
+
+    const dirFwd = [0, Math.cos(a2), -Math.sin(a2)];
+    const dirRight = [1, 0, 0];
+    const dirDown = [0, -Math.sin(a2), -Math.cos(a2)];
+    const trg = [
+      orbitControls.target.x + target[0],
+      -orbitControls.target.z + target[1],
+      orbitControls.target.y + target[2]];
+
+    const camZ = applyRotAzimuth(dirFwd);
+    const pos = [-camZ[0] * d + trg[0], -camZ[1] * d + trg[1], -camZ[2] * d + trg[2]];
+
+    const out = {
+      pos: pos,
+      x: applyRotAzimuth(dirRight),
+      y: applyRotAzimuth(dirDown),
+      z: camZ
+    };
+
+		// console.log({'pos': orbitControls.target});
+
+		function transpose4(m) {
+			const m1 = translate4(m, 0, 0, 0); // copy
+			for (let i = 0; i < 4; ++i)
+				for (let j = 0; j < 4; ++j) {
+					m1[4*j+i] = m[4*i+j];
+				}
+		  return m1;
+		}
+
+		const Y_IS_UP_TO_Z_IS_UP = transpose4([
+			1, 0, 0, 0,
+			0, 0,-1, 0,
+			0, 1, 0, 0,
+			0, 0, 0, 1
+		]);
+
+		const camToWorld = transpose4([
+			out.x[0], out.y[0], out.z[0], out.pos[0],
+			out.x[1], out.y[1], out.z[1], out.pos[1],
+			out.x[2], out.y[2], out.z[2], out.pos[2],
+			0, 0, 0, 1
+		]);
+
+		if (!zIsUp)
+			return invert4(multiply4(Y_IS_UP_TO_Z_IS_UP, camToWorld));
+
+		return invert4(camToWorld);
+  };
+}
+
 const camera = cameras[0];
 
 function getProjectionMatrix(fx, fy, width, height) {
@@ -348,7 +444,7 @@ function createWorker(self) {
 		for (let i = 1; i < 256*256; i++) starts0[i] = starts0[i - 1] + counts0[i - 1];
 		depthIndex = new Uint32Array(vertexCount);
 		for (let i = 0; i < vertexCount; i++) depthIndex[starts0[sizeList[i]]++] = i;
-		
+
 
 		lastProj = viewProj;
 		// console.timeEnd("sort");
@@ -368,7 +464,7 @@ function createWorker(self) {
 				f_buffer[8 * i + 3 + 0],
 				f_buffer[8 * i + 3 + 1],
 				f_buffer[8 * i + 3 + 2],
-			];
+			].map(x => x);
 			let rot = [
 				(u_buffer[32 * i + 28 + 0] - 128) / 128,
 				(u_buffer[32 * i + 28 + 1] - 128) / 128,
@@ -638,21 +734,21 @@ const vertexShaderSource = `
     }
 
     mat3 Vrk = mat3(
-        covA.x, covA.y, covA.z, 
+        covA.x, covA.y, covA.z,
         covA.y, covB.x, covB.y,
         covA.z, covB.y, covB.z
     );
-	
+
     mat3 J = mat3(
-        focal.x / camspace.z, 0., -(focal.x * camspace.x) / (camspace.z * camspace.z), 
-        0., -focal.y / camspace.z, (focal.y * camspace.y) / (camspace.z * camspace.z), 
+        focal.x / camspace.z, 0., -(focal.x * camspace.x) / (camspace.z * camspace.z),
+        0., -focal.y / camspace.z, (focal.y * camspace.y) / (camspace.z * camspace.z),
         0., 0., 0.
     );
 
     mat3 W = transpose(mat3(view));
     mat3 T = W * J;
     mat3 cov = transpose(T) * Vrk * T;
-    
+
     vec2 vCenter = vec2(pos2d) / pos2d.w;
 
     float diagonal1 = cov[0][0] + 0.3;
@@ -672,8 +768,8 @@ const vertexShaderSource = `
     vPosition = position;
 
     gl_Position = vec4(
-        vCenter 
-            + position.x * v1 / viewport * 2.0 
+        vCenter
+            + position.x * v1 / viewport * 2.0
             + position.y * v2 / viewport * 2.0, 0.0, 1.0);
 
   }
@@ -685,10 +781,11 @@ precision mediump float;
   varying vec4 vColor;
   varying vec2 vPosition;
 
-  void main () {    
+  void main () {
 	  float A = -dot(vPosition, vPosition);
     if (A < -4.0) discard;
     float B = exp(A) * vColor.a;
+    // gl_FragColor = vec4(B * vec3(vPosition, 1.0), B);
     gl_FragColor = vec4(B * vColor.rgb, B);
   }
 `;
@@ -697,7 +794,7 @@ let defaultViewMatrix = [
 	0.47, 0.04, 0.88, 0, -0.11, 0.99, 0.02, 0, -0.88, -0.11, 0.47, 0, 0.07,
 	0.03, 6.55, 1,
 ];
-let viewMatrix = defaultViewMatrix;
+
 let activeDownsample = null
 async function main() {
 	let carousel = true;
@@ -741,6 +838,10 @@ async function main() {
 	const canvas = document.getElementById("canvas");
 	canvas.width = innerWidth / downsample;
 	canvas.height = innerHeight / downsample;
+
+	let dyncam = new DynamicCamera(canvas, !!params.get("z_is_up"));
+	let viewMatrix = dyncam.getViewMatrix();
+	console.log({viewMatrix})
 
 	const fps = document.getElementById("fps");
 
@@ -957,7 +1058,7 @@ async function main() {
 				inv = translate4(inv, 0, 0, -d);
 			}
 
-			viewMatrix = invert4(inv);
+			viewMatrix = dyncam.getViewMatrix();
 		},
 		{ passive: false },
 	);
@@ -981,37 +1082,9 @@ async function main() {
 	canvas.addEventListener("mousemove", (e) => {
 		e.preventDefault();
 		if (down == 1) {
-			let inv = invert4(viewMatrix);
-			let dx = (5 * (e.clientX - startX)) / innerWidth;
-			let dy = (5 * (e.clientY - startY)) / innerHeight;
-			let d = 4;
-
-			inv = translate4(inv, 0, 0, d);
-			inv = rotate4(inv, dx, 0, 1, 0);
-			inv = rotate4(inv, -dy, 1, 0, 0);
-			inv = translate4(inv, 0, 0, -d);
-			// let postAngle = Math.atan2(inv[0], inv[10])
-			// inv = rotate4(inv, postAngle - preAngle, 0, 0, 1)
-			// console.log(postAngle)
-			viewMatrix = invert4(inv);
-
-			startX = e.clientX;
-			startY = e.clientY;
+			viewMatrix = dyncam.getViewMatrix();
 		} else if (down == 2) {
-			let inv = invert4(viewMatrix);
-			// inv = rotateY(inv, );
-			let preY = inv[13];
-			inv = translate4(
-				inv,
-				(-10 * (e.clientX - startX)) / innerWidth,
-				0,
-				(10 * (e.clientY - startY)) / innerHeight,
-			);
-			inv[13] = preY;
-			viewMatrix = invert4(inv);
-
-			startX = e.clientX;
-			startY = e.clientY;
+			viewMatrix = dyncam.getViewMatrix();
 		}
 	});
 	canvas.addEventListener("mouseup", (e) => {
@@ -1128,91 +1201,7 @@ async function main() {
 	let start = 0;
 
 	const frame = (now) => {
-		let inv = invert4(viewMatrix);
-
-		if (activeKeys.includes("ArrowUp")) {
-			if (activeKeys.includes("Shift")) {
-				inv = translate4(inv, 0, -0.03, 0);
-			} else {
-				let preY = inv[13];
-				inv = translate4(inv, 0, 0, 0.1);
-				inv[13] = preY;
-			}
-		}
-		if (activeKeys.includes("ArrowDown")) {
-			if (activeKeys.includes("Shift")) {
-				inv = translate4(inv, 0, 0.03, 0);
-			} else {
-				let preY = inv[13];
-				inv = translate4(inv, 0, 0, -0.1);
-				inv[13] = preY;
-			}
-		}
-		if (activeKeys.includes("ArrowLeft"))
-			inv = translate4(inv, -0.03, 0, 0);
-		//
-		if (activeKeys.includes("ArrowRight"))
-			inv = translate4(inv, 0.03, 0, 0);
-		// inv = rotate4(inv, 0.01, 0, 1, 0);
-		if (activeKeys.includes("a")) inv = rotate4(inv, -0.01, 0, 1, 0);
-		if (activeKeys.includes("d")) inv = rotate4(inv, 0.01, 0, 1, 0);
-		if (activeKeys.includes("q")) inv = rotate4(inv, 0.01, 0, 0, 1);
-		if (activeKeys.includes("e")) inv = rotate4(inv, -0.01, 0, 0, 1);
-		if (activeKeys.includes("w")) inv = rotate4(inv, 0.005, 1, 0, 0);
-		if (activeKeys.includes("s")) inv = rotate4(inv, -0.005, 1, 0, 0);
-
-		if (["j", "k", "l", "i"].some((k) => activeKeys.includes(k))) {
-			let d = 4;
-			inv = translate4(inv, 0, 0, d);
-			inv = rotate4(
-				inv,
-				activeKeys.includes("j")
-					? -0.05
-					: activeKeys.includes("l")
-					? 0.05
-					: 0,
-				0,
-				1,
-				0,
-			);
-			inv = rotate4(
-				inv,
-				activeKeys.includes("i")
-					? 0.05
-					: activeKeys.includes("k")
-					? -0.05
-					: 0,
-				1,
-				0,
-				0,
-			);
-			inv = translate4(inv, 0, 0, -d);
-		}
-
-		// inv[13] = preY;
-		viewMatrix = invert4(inv);
-
-		if (carousel) {
-			let inv = invert4(defaultViewMatrix);
-
-			const t = Math.sin((Date.now() - start) / 5000);
-			inv = translate4(inv, 2.5 * t, 0, 6 * (1 - Math.cos(t)));
-			inv = rotate4(inv, -0.6 * t, 0, 1, 0);
-
-			viewMatrix = invert4(inv);
-		}
-
-		if (activeKeys.includes(" ")) {
-			jumpDelta = Math.min(1, jumpDelta + 0.05);
-		} else {
-			jumpDelta = Math.max(0, jumpDelta - 0.05);
-		}
-
-		let inv2 = invert4(viewMatrix);
-		inv2[13] -= jumpDelta;
-		inv2 = rotate4(inv2, -0.1 * jumpDelta, 1, 0, 0);
-		let actualViewMatrix = invert4(inv2);
-
+		let actualViewMatrix = dyncam.getViewMatrix();
 		const viewProj = multiply4(projectionMatrix, actualViewMatrix);
 		worker.postMessage({ view: viewProj });
 
