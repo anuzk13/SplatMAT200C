@@ -382,6 +382,150 @@ function translate4(a, x, y, z) {
 	];
 }
 
+function getShaderGlsl(nSphericalHarmonics = 0) {
+		let shAttributesGlsl = "";
+		let getColorGlsl = "";
+		let callGetColorGlsl = "color";
+
+		const shFormula = [
+			"0.28209479177387814",
+			"-0.48860251190291987 * ray.y",
+			"0.48860251190291987 * ray.z",
+			"-0.48860251190291987 * ray.x",
+			"1.0925484305920792 * ray.x * ray.y",
+			"-1.0925484305920792 * ray.y * ray.z",
+			"0.94617469575755997 * ray.z * ray.z - 0.31539156525251999",
+			"-1.0925484305920792 * ray.x * ray.z",
+			"0.54627421529603959 * ray.x * ray.x - 0.54627421529603959 * ray.y * ray.y",
+			"0.59004358992664352 * ray.y * (-3.0 * ray.x * ray.x + ray.y * ray.y)",
+			"2.8906114426405538 * ray.x * ray.y * ray.z",
+			"0.45704579946446572 * ray.y * (1.0 - 5.0 * ray.z * ray.z)",
+			"0.3731763325901154 * ray.z * (5.0 * ray.z * ray.z - 3.0)",
+			"0.45704579946446572 * ray.x * (1.0 - 5.0 * ray.z * ray.z)",
+			"1.4453057213202769 * ray.z * (ray.x * ray.x - ray.y * ray.y)",
+			"0.59004358992664352 * ray.x * (-ray.x * ray.x + 3.0 * ray.y * ray.y)",
+		];
+
+		if (nSphericalHarmonics > 0) {
+			for (let i = 0; i < nSphericalHarmonics; ++i) {
+				shAttributesGlsl += `attribute vec3 sh${i};
+				`;
+			}
+
+			let tail = '';
+			for (let i = 1; i < nSphericalHarmonics; ++i)
+				tail += `activation += (${shFormula[i]}) * sh${i};
+				`;
+
+			getColorGlsl = `
+			vec3 getColor(vec3 ray) {
+					vec3 activation = (${shFormula[0]}) * sh0;
+					${tail}
+					return 1.0 / (1.0 + exp(-activation));
+			}
+			`;
+
+			callGetColorGlsl = `vec4(getColor(vec3(view[0][2], view[1][2], view[2][2])), color.a)`;
+		}
+
+		const vertexShaderSource = `
+		precision mediump float;
+		attribute vec2 position;
+
+		attribute vec4 color;
+		attribute vec3 center;
+		attribute vec3 covA;
+		attribute vec3 covB;
+		${shAttributesGlsl}
+
+		uniform mat4 projection, view;
+		uniform vec2 focal;
+		uniform vec2 viewport;
+
+		varying vec4 vColor;
+		varying vec2 vPosition;
+
+		${getColorGlsl}
+
+		mat3 transpose(mat3 m) {
+				return mat3(
+				    m[0][0], m[1][0], m[2][0],
+				    m[0][1], m[1][1], m[2][1],
+				    m[0][2], m[1][2], m[2][2]
+				);
+		}
+
+		void main () {
+				vec4 camspace = view * vec4(center, 1);
+				vec4 pos2d = projection * camspace;
+
+				float bounds = 1.2 * pos2d.w;
+				if (pos2d.z < -pos2d.w || pos2d.x < -bounds || pos2d.x > bounds
+					 || pos2d.y < -bounds || pos2d.y > bounds) {
+					    gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+					    return;
+				}
+
+				mat3 Vrk = mat3(
+				    covA.x, covA.y, covA.z,
+				    covA.y, covB.x, covB.y,
+				    covA.z, covB.y, covB.z
+				);
+
+				mat3 J = mat3(
+				    focal.x / camspace.z, 0., -(focal.x * camspace.x) / (camspace.z * camspace.z),
+				    0., -focal.y / camspace.z, (focal.y * camspace.y) / (camspace.z * camspace.z),
+				    0., 0., 0.
+				);
+
+				mat3 W = transpose(mat3(view));
+				mat3 T = W * J;
+				mat3 cov = transpose(T) * Vrk * T;
+
+				vec2 vCenter = vec2(pos2d) / pos2d.w;
+
+				float diagonal1 = cov[0][0] + 0.3;
+				float offDiagonal = cov[0][1];
+				float diagonal2 = cov[1][1] + 0.3;
+
+				float mid = 0.5 * (diagonal1 + diagonal2);
+				float radius = length(vec2((diagonal1 - diagonal2) / 2.0, offDiagonal));
+				float lambda1 = mid + radius;
+				float lambda2 = max(mid - radius, 0.1);
+				vec2 diagonalVector = normalize(vec2(offDiagonal, lambda1 - diagonal1));
+				vec2 v1 = min(sqrt(2.0 * lambda1), 1024.0) * diagonalVector;
+				vec2 v2 = min(sqrt(2.0 * lambda2), 1024.0) * vec2(diagonalVector.y, -diagonalVector.x);
+
+
+				vColor = ${callGetColorGlsl};
+				vPosition = position;
+
+				gl_Position = vec4(
+				    vCenter
+				        + position.x * v1 / viewport * 2.0
+				        + position.y * v2 / viewport * 2.0, 0.0, 1.0);
+		}
+		`;
+
+		const fragmentShaderSource = `
+		precision mediump float;
+
+		varying vec4 vColor;
+		varying vec2 vPosition;
+
+		void main () {
+				float A = -dot(vPosition, vPosition);
+				if (A < -4.0) discard;
+				float B = exp(A) * vColor.a;
+				// gl_FragColor = vec4(B * vec3(vPosition, 1.0), B);
+				gl_FragColor = vec4(B * vColor.rgb, B);
+		}
+		`;
+
+		// console.log(vertexShaderSource);
+		return { frag: fragmentShaderSource, vert: vertexShaderSource };
+}
+
 function createWorker(self) {
 	let buffer;
 	let vertexCount = 0;
@@ -391,12 +535,26 @@ function createWorker(self) {
 	// XYZ - Scale (Float32)
 	// RGBA - colors (uint8)
 	// IJKL - quaternion/rot (uint8)
-	const rowLength = 3 * 4 + 3 * 4 + 4 + 4;
 	let lastProj = [];
 	let depthIndex = new Uint32Array();
+	let sphericalHarmonics;
+
+	function getFloatRowLength() {
+	    return 3 + 3 + (sphericalHarmonics ? (3 * sphericalHarmonics.nPerChannel) : 0);
+	}
+
+	function getRowLength() {
+        return getFloatRowLength() * 4 + 4 + 4;
+	}
 
 	const runSort = (viewProj) => {
 		if (!buffer) return;
+
+		const fBufStride = getFloatRowLength() + 2;
+		const uBufStride = fBufStride * 4;
+		const uBufOffset = getFloatRowLength() * 4;
+
+		// console.log({sphericalHarmonics,fBufStride,uBufStride,uBufOffset});
 
 		const f_buffer = new Float32Array(buffer);
 		const u_buffer = new Uint8Array(buffer);
@@ -406,6 +564,12 @@ function createWorker(self) {
 
 		const center = new Float32Array(3 * vertexCount);
 		const color = new Float32Array(4 * vertexCount);
+
+		let shBuffers;
+
+		if (sphericalHarmonics) {
+		    shBuffers = Array.from({ length: sphericalHarmonics.nPerChannel }, (_, i) => new Float32Array(3 * vertexCount));
+		}
 
 		if (depthIndex.length == vertexCount) {
 			let dot =
@@ -422,9 +586,9 @@ function createWorker(self) {
 		let sizeList = new Int32Array(vertexCount);
 		for (let i = 0; i < vertexCount; i++) {
 			let depth =
-				((viewProj[2] * f_buffer[8 * i + 0] +
-					viewProj[6] * f_buffer[8 * i + 1] +
-					viewProj[10] * f_buffer[8 * i + 2]) *
+				((viewProj[2] * f_buffer[fBufStride * i + 0] +
+					viewProj[6] * f_buffer[fBufStride * i + 1] +
+					viewProj[10] * f_buffer[fBufStride * i + 2]) *
 					4096) |
 				0;
 			sizeList[i] = depth;
@@ -451,26 +615,34 @@ function createWorker(self) {
 		for (let j = 0; j < vertexCount; j++) {
 			const i = depthIndex[j];
 
-			center[3 * j + 0] = f_buffer[8 * i + 0];
-			center[3 * j + 1] = f_buffer[8 * i + 1];
-			center[3 * j + 2] = f_buffer[8 * i + 2];
+			center[3 * j + 0] = f_buffer[fBufStride * i + 0];
+			center[3 * j + 1] = f_buffer[fBufStride * i + 1];
+			center[3 * j + 2] = f_buffer[fBufStride * i + 2];
 
-			color[4 * j + 0] = u_buffer[32 * i + 24 + 0] / 255;
-			color[4 * j + 1] = u_buffer[32 * i + 24 + 1] / 255;
-			color[4 * j + 2] = u_buffer[32 * i + 24 + 2] / 255;
-			color[4 * j + 3] = u_buffer[32 * i + 24 + 3] / 255;
+			color[4 * j + 0] = u_buffer[uBufStride * i + uBufOffset + 0] / 255;
+			color[4 * j + 1] = u_buffer[uBufStride * i + uBufOffset + 1] / 255;
+			color[4 * j + 2] = u_buffer[uBufStride * i + uBufOffset + 2] / 255;
+			color[4 * j + 3] = u_buffer[uBufStride * i + uBufOffset + 3] / 255;
 
 			let scale = [
-				f_buffer[8 * i + 3 + 0],
-				f_buffer[8 * i + 3 + 1],
-				f_buffer[8 * i + 3 + 2],
-			].map(x => x);
-			let rot = [
-				(u_buffer[32 * i + 28 + 0] - 128) / 128,
-				(u_buffer[32 * i + 28 + 1] - 128) / 128,
-				(u_buffer[32 * i + 28 + 2] - 128) / 128,
-				(u_buffer[32 * i + 28 + 3] - 128) / 128,
+				f_buffer[fBufStride * i + 3 + 0],
+				f_buffer[fBufStride * i + 3 + 1],
+				f_buffer[fBufStride * i + 3 + 2],
 			];
+			let rot = [
+				(u_buffer[uBufStride * i + uBufOffset + 4 + 0] - 128) / 128,
+				(u_buffer[uBufStride * i + uBufOffset + 4 + 1] - 128) / 128,
+				(u_buffer[uBufStride * i + uBufOffset + 4 + 2] - 128) / 128,
+				(u_buffer[uBufStride * i + uBufOffset + 4 + 3] - 128) / 128,
+			];
+
+			if (shBuffers) {
+			    for (let jj = 0; jj < shBuffers.length; ++jj) {
+			        for (let kk = 0; kk < 3; ++kk) {
+			            shBuffers[jj][3 * j + kk] = f_buffer[fBufStride * i + 6 + jj*3 + kk];
+			        }
+			    }
+			}
 
 			const R = [
 				1.0 - 2.0 * (rot[2] * rot[2] + rot[3] * rot[3]),
@@ -486,7 +658,16 @@ function createWorker(self) {
 				1.0 - 2.0 * (rot[1] * rot[1] + rot[2] * rot[2]),
 			];
 
+			const MAX_SCALE = 10000;
 			// Compute the matrix product of S and R (M = S * R)
+			if (scale[0]*scale[0] + scale[1]*scale[1] + scale[2]*scale[2] > MAX_SCALE*MAX_SCALE) {
+			    throw "Invalid scale, the data is probably corrupted";
+			}
+
+			/*const CAP_SCALE = 0.001;
+			for (let iii = 0; iii < 3; ++iii)
+			    scale[iii] = Math.min(scale[iii], CAP_SCALE);*/
+
 			const M = [
 				scale[0] * R[0],
 				scale[0] * R[1],
@@ -507,17 +688,29 @@ function createWorker(self) {
 			covB[3 * j + 2] = M[2] * M[2] + M[5] * M[5] + M[8] * M[8];
 		}
 
-		self.postMessage({ covA, center, color, covB, viewProj }, [
+		let objs = { covA, center, color, covB, viewProj };
+		let bufs = [
 			covA.buffer,
 			center.buffer,
 			color.buffer,
-			covB.buffer,
-		]);
+			covB.buffer
+		];
+		if (shBuffers) {
+		    for (let jj = 0; jj < shBuffers.length; ++jj) {
+		        objs[`sh${jj}`] = shBuffers[jj];
+		        bufs.push(shBuffers[jj].buffer);
+		    }
+		}
+
+		self.postMessage(objs, bufs);
 
 		// console.timeEnd("sort");
 	};
 
 	function processPlyBuffer(inputBuffer) {
+        const floatRowLength = getFloatRowLength();
+        const rowLength = getRowLength();
+
 		const ubuf = new Uint8Array(inputBuffer);
 		// 10KB ought to be enough for a header...
 		const header = new TextDecoder().decode(ubuf.slice(0, 1024 * 10));
@@ -593,7 +786,6 @@ function createWorker(self) {
 		// XYZ - Scale (Float32)
 		// RGBA - colors (uint8)
 		// IJKL - quaternion/rot (uint8)
-		const rowLength = 3 * 4 + 3 * 4 + 4 + 4;
 		const buffer = new ArrayBuffer(rowLength * vertexCount);
 
 		console.time("build buffer");
@@ -604,12 +796,12 @@ function createWorker(self) {
 			const scales = new Float32Array(buffer, j * rowLength + 4 * 3, 3);
 			const rgba = new Uint8ClampedArray(
 				buffer,
-				j * rowLength + 4 * 3 + 4 * 3,
+				j * rowLength + floatRowLength,
 				4,
 			);
 			const rot = new Uint8ClampedArray(
 				buffer,
-				j * rowLength + 4 * 3 + 4 * 3 + 4,
+				j * rowLength + floatRowLength + 4,
 				4,
 			);
 
@@ -684,11 +876,12 @@ function createWorker(self) {
 			vertexCount = 0;
 			runSort(viewProj);
 			buffer = processPlyBuffer(e.data.ply);
-			vertexCount = Math.floor(buffer.byteLength / rowLength);
+			vertexCount = Math.floor(buffer.byteLength / getRowLength());
 			postMessage({ buffer: buffer });
 		} else if (e.data.buffer) {
 			buffer = e.data.buffer;
 			vertexCount = e.data.vertexCount;
+			sphericalHarmonics = e.data.sphericalHarmonics.keep ? e.data.sphericalHarmonics : null;
 		} else if (e.data.vertexCount) {
 			vertexCount = e.data.vertexCount;
 		} else if (e.data.view) {
@@ -697,98 +890,6 @@ function createWorker(self) {
 		}
 	};
 }
-
-const vertexShaderSource = `
-  precision mediump float;
-  attribute vec2 position;
-
-  attribute vec4 color;
-  attribute vec3 center;
-  attribute vec3 covA;
-  attribute vec3 covB;
-
-  uniform mat4 projection, view;
-  uniform vec2 focal;
-  uniform vec2 viewport;
-
-  varying vec4 vColor;
-  varying vec2 vPosition;
-
-  mat3 transpose(mat3 m) {
-    return mat3(
-        m[0][0], m[1][0], m[2][0],
-        m[0][1], m[1][1], m[2][1],
-        m[0][2], m[1][2], m[2][2]
-    );
-  }
-
-  void main () {
-    vec4 camspace = view * vec4(center, 1);
-    vec4 pos2d = projection * camspace;
-
-    float bounds = 1.2 * pos2d.w;
-    if (pos2d.z < -pos2d.w || pos2d.x < -bounds || pos2d.x > bounds
-		 || pos2d.y < -bounds || pos2d.y > bounds) {
-        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
-        return;
-    }
-
-    mat3 Vrk = mat3(
-        covA.x, covA.y, covA.z,
-        covA.y, covB.x, covB.y,
-        covA.z, covB.y, covB.z
-    );
-
-    mat3 J = mat3(
-        focal.x / camspace.z, 0., -(focal.x * camspace.x) / (camspace.z * camspace.z),
-        0., -focal.y / camspace.z, (focal.y * camspace.y) / (camspace.z * camspace.z),
-        0., 0., 0.
-    );
-
-    mat3 W = transpose(mat3(view));
-    mat3 T = W * J;
-    mat3 cov = transpose(T) * Vrk * T;
-
-    vec2 vCenter = vec2(pos2d) / pos2d.w;
-
-    float diagonal1 = cov[0][0] + 0.3;
-    float offDiagonal = cov[0][1];
-    float diagonal2 = cov[1][1] + 0.3;
-
-	float mid = 0.5 * (diagonal1 + diagonal2);
-	float radius = length(vec2((diagonal1 - diagonal2) / 2.0, offDiagonal));
-	float lambda1 = mid + radius;
-	float lambda2 = max(mid - radius, 0.1);
-	vec2 diagonalVector = normalize(vec2(offDiagonal, lambda1 - diagonal1));
-	vec2 v1 = min(sqrt(2.0 * lambda1), 1024.0) * diagonalVector;
-	vec2 v2 = min(sqrt(2.0 * lambda2), 1024.0) * vec2(diagonalVector.y, -diagonalVector.x);
-
-
-    vColor = color;
-    vPosition = position;
-
-    gl_Position = vec4(
-        vCenter
-            + position.x * v1 / viewport * 2.0
-            + position.y * v2 / viewport * 2.0, 0.0, 1.0);
-
-  }
-`;
-
-const fragmentShaderSource = `
-precision mediump float;
-
-  varying vec4 vColor;
-  varying vec2 vPosition;
-
-  void main () {
-	  float A = -dot(vPosition, vPosition);
-    if (A < -4.0) discard;
-    float B = exp(A) * vColor.a;
-    // gl_FragColor = vec4(B * vec3(vPosition, 1.0), B);
-    gl_FragColor = vec4(B * vColor.rgb, B);
-  }
-`;
 
 let defaultViewMatrix = [
 	0.47, 0.04, 0.88, 0, -0.11, 0.99, 0.02, 0, -0.88, -0.11, 0.47, 0, 0.07,
@@ -817,9 +918,16 @@ async function main() {
 	if (req.status != 200)
 		throw new Error(req.status + " Unable to load " + req.url);
 
-	const rowLength = 3 * 4 + 3 * 4 + 4 + 4;
 	const reader = req.body.getReader();
 	let splatData = new Uint8Array(req.headers.get("content-length"));
+
+	const N_HARMONICS_PER_CHANNEL_IN_FILE = 16;
+	const sphericalHarmonics = {
+		keep: !!params.get('sh'),
+		nPerChannel: N_HARMONICS_PER_CHANNEL_IN_FILE,
+		nRendered: 9
+	};
+	const rowLength = (3 + 3 + (sphericalHarmonics.keep ? (3 * sphericalHarmonics.nPerChannel) : 0)) * 4 + 4 + 4;
 
 	const downsample =
 		splatData.length / rowLength > 500000 ? 1 : 1 / devicePixelRatio;
@@ -841,7 +949,6 @@ async function main() {
 
 	let dyncam = new DynamicCamera(canvas, !!params.get("z_is_up"));
 	let viewMatrix = dyncam.getViewMatrix();
-	console.log({viewMatrix})
 
 	const fps = document.getElementById("fps");
 
@@ -855,14 +962,16 @@ async function main() {
 	const gl = canvas.getContext("webgl");
 	const ext = gl.getExtension("ANGLE_instanced_arrays");
 
+	const shaderSource = getShaderGlsl(sphericalHarmonics.keep ? sphericalHarmonics.nRendered : 0);
+
 	const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-	gl.shaderSource(vertexShader, vertexShaderSource);
+	gl.shaderSource(vertexShader, shaderSource.vert);
 	gl.compileShader(vertexShader);
 	if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS))
 		console.error(gl.getShaderInfoLog(vertexShader));
 
 	const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-	gl.shaderSource(fragmentShader, fragmentShaderSource);
+	gl.shaderSource(fragmentShader, shaderSource.frag);
 	gl.compileShader(fragmentShader);
 	if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS))
 		console.error(gl.getShaderInfoLog(fragmentShader));
@@ -921,40 +1030,25 @@ async function main() {
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 	gl.vertexAttribPointer(a_position, 2, gl.FLOAT, false, 0, 0);
 
-	// center
-	const centerBuffer = gl.createBuffer();
-	// gl.bindBuffer(gl.ARRAY_BUFFER, centerBuffer);
-	// gl.bufferData(gl.ARRAY_BUFFER, center, gl.STATIC_DRAW);
-	const a_center = gl.getAttribLocation(program, "center");
-	gl.enableVertexAttribArray(a_center);
-	gl.bindBuffer(gl.ARRAY_BUFFER, centerBuffer);
-	gl.vertexAttribPointer(a_center, 3, gl.FLOAT, false, 0, 0);
-	ext.vertexAttribDivisorANGLE(a_center, 1); // Use the extension here
 
-	// color
-	const colorBuffer = gl.createBuffer();
-	// gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-	// gl.bufferData(gl.ARRAY_BUFFER, color, gl.STATIC_DRAW);
-	const a_color = gl.getAttribLocation(program, "color");
-	gl.enableVertexAttribArray(a_color);
-	gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-	gl.vertexAttribPointer(a_color, 4, gl.FLOAT, false, 0, 0);
-	ext.vertexAttribDivisorANGLE(a_color, 1); // Use the extension here
+	function createVecFloatBuffer(name, vecDim) {
+			const buf = gl.createBuffer();
+			const a = gl.getAttribLocation(program, name);
+			gl.enableVertexAttribArray(a);
+			gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+			gl.vertexAttribPointer(a, vecDim, gl.FLOAT, false, 0, 0);
+			ext.vertexAttribDivisorANGLE(a, 1);
+			return buf;
+	}
 
-	// cov
-	const covABuffer = gl.createBuffer();
-	const a_covA = gl.getAttribLocation(program, "covA");
-	gl.enableVertexAttribArray(a_covA);
-	gl.bindBuffer(gl.ARRAY_BUFFER, covABuffer);
-	gl.vertexAttribPointer(a_covA, 3, gl.FLOAT, false, 0, 0);
-	ext.vertexAttribDivisorANGLE(a_covA, 1); // Use the extension here
 
-	const covBBuffer = gl.createBuffer();
-	const a_covB = gl.getAttribLocation(program, "covB");
-	gl.enableVertexAttribArray(a_covB);
-	gl.bindBuffer(gl.ARRAY_BUFFER, covBBuffer);
-	gl.vertexAttribPointer(a_covB, 3, gl.FLOAT, false, 0, 0);
-	ext.vertexAttribDivisorANGLE(a_covB, 1); // Use the extension here
+	const centerBuffer = createVecFloatBuffer('center', 3);
+	const colorBuffer = createVecFloatBuffer('color', 4);
+	const covABuffer = createVecFloatBuffer('covA', 3);
+	const covBBuffer = createVecFloatBuffer('covB', 3);
+	const shBuffersGl = [];
+	for (let i = 0; i < sphericalHarmonics.nRendered; ++i)
+			shBuffersGl.push(createVecFloatBuffer(`sh${i}`, 3));
 
 	let lastProj = [];
 	let lastData;
@@ -971,7 +1065,7 @@ async function main() {
 			document.body.appendChild(link);
 			link.click();
 		} else {
-			let { covA, covB, center, color, viewProj } = e.data;
+			let { covA, covB, center, color, viewProj, ...shBufferData } = e.data;
 			lastData = e.data;
 
 			activeDownsample = downsample
@@ -990,6 +1084,11 @@ async function main() {
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, covBBuffer);
 			gl.bufferData(gl.ARRAY_BUFFER, covB, gl.DYNAMIC_DRAW);
+
+			for (let i = 0; i < shBuffersGl.length; ++i) {
+					gl.bindBuffer(gl.ARRAY_BUFFER, shBuffersGl[i]);
+					gl.bufferData(gl.ARRAY_BUFFER, shBufferData[`sh${i}`], gl.DYNAMIC_DRAW);
+			}
 		}
 	};
 
@@ -1267,6 +1366,7 @@ async function main() {
 					worker.postMessage({
 						buffer: splatData.buffer,
 						vertexCount: Math.floor(splatData.length / rowLength),
+						sphericalHarmonics
 					});
 				}
 			};
@@ -1315,6 +1415,7 @@ async function main() {
 			worker.postMessage({
 				buffer: splatData.buffer,
 				vertexCount: Math.floor(bytesRead / rowLength),
+				sphericalHarmonics
 			});
 			lastVertexCount = vertexCount;
 		}
@@ -1323,10 +1424,11 @@ async function main() {
 		worker.postMessage({
 			buffer: splatData.buffer,
 			vertexCount: Math.floor(bytesRead / rowLength),
+			sphericalHarmonics
 		});
 }
 
-main().catch((err) => {
+main()/*.catch((err) => {
 	document.getElementById("spinner").style.display = "none";
 	document.getElementById("message").innerText = err.toString();
-});
+})*/;
