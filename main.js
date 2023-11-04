@@ -14,145 +14,7 @@ let cameras = [
 		],
 		fy: 1164.6601287484507,
 		fx: 1159.5880733038064,
-	},
-	{
-		id: 1,
-		img_name: "00009",
-		width: 1959,
-		height: 1090,
-		position: [
-			-2.5199776022057296, -0.09704735754873686, -3.6247725540304545,
-		],
-		rotation: [
-			[0.9982731285632193, -0.011928707708098955, -0.05751927260507243],
-			[0.0065061360949636325, 0.9955928229282383, -0.09355533724430458],
-			[0.058381769258182864, 0.09301955098900708, 0.9939511719154457],
-		],
-		fy: 1164.6601287484507,
-		fx: 1159.5880733038064,
-	},
-	{
-		id: 2,
-		img_name: "00017",
-		width: 1959,
-		height: 1090,
-		position: [
-			-0.7737533667465242, -0.3364271945329695, -2.9358969417573753,
-		],
-		rotation: [
-			[0.9998813418672372, 0.013742375651625236, -0.0069605529394208224],
-			[-0.014268370388586709, 0.996512943252834, -0.08220929105659476],
-			[0.00580653013657589, 0.08229885200307129, 0.9965907801935302],
-		],
-		fy: 1164.6601287484507,
-		fx: 1159.5880733038064,
-	},
-	{
-		id: 3,
-		img_name: "00025",
-		width: 1959,
-		height: 1090,
-		position: [
-			1.2198221749590001, -0.2196687861401182, -2.3183162007028453,
-		],
-		rotation: [
-			[0.9208648867765482, 0.0012010625395201253, 0.389880004297208],
-			[-0.06298204172269357, 0.987319521752825, 0.14571693239364383],
-			[-0.3847611242348369, -0.1587410451475895, 0.9092635249821667],
-		],
-		fy: 1164.6601287484507,
-		fx: 1159.5880733038064,
-	},
-	{
-		id: 4,
-		img_name: "00033",
-		width: 1959,
-		height: 1090,
-		position: [
-			1.742387858893817, -0.13848225198886954, -2.0566370113193146,
-		],
-		rotation: [
-			[0.24669889292141334, -0.08370189346592856, -0.9654706879349405],
-			[0.11343747891376445, 0.9919082664242816, -0.05700815184573074],
-			[0.9624300466054861, -0.09545671285663988, 0.2541976029815521],
-		],
-		fy: 1164.6601287484507,
-		fx: 1159.5880733038064,
-	},
-	{
-		id: 5,
-		img_name: "00041",
-		width: 1959,
-		height: 1090,
-		position: [
-			3.6567309419223935, -0.16470990600750707, -1.3458085590422042,
-		],
-		rotation: [
-			[0.2341293058324528, -0.02968330457755884, -0.9717522161434825],
-			[0.10270823606832301, 0.99469554638321, -0.005638106875665722],
-			[0.9667649592295676, -0.09848690996657204, 0.2359360976431732],
-		],
-		fy: 1164.6601287484507,
-		fx: 1159.5880733038064,
-	},
-	{
-		id: 6,
-		img_name: "00049",
-		width: 1959,
-		height: 1090,
-		position: [
-			3.9013554243203497, -0.2597500978038105, -0.8106154188297828,
-		],
-		rotation: [
-			[0.6717235545638952, -0.015718162115524837, -0.7406351366386528],
-			[0.055627354673906296, 0.9980224478387622, 0.029270992841185218],
-			[0.7387104058127439, -0.060861588786650656, 0.6712695459756353],
-		],
-		fy: 1164.6601287484507,
-		fx: 1159.5880733038064,
-	},
-	{
-		id: 7,
-		img_name: "00057",
-		width: 1959,
-		height: 1090,
-		position: [4.742994605467533, -0.05591660945412069, 0.9500365976084458],
-		rotation: [
-			[-0.17042655709210375, 0.01207080756938, -0.9852964448542146],
-			[0.1165090336695526, 0.9931575292530063, -0.00798543433078162],
-			[0.9784581921120181, -0.1161568667478904, -0.1706667764862097],
-		],
-		fy: 1164.6601287484507,
-		fx: 1159.5880733038064,
-	},
-	{
-		id: 8,
-		img_name: "00065",
-		width: 1959,
-		height: 1090,
-		position: [4.34676307626522, 0.08168160516967145, 1.0876221470355405],
-		rotation: [
-			[-0.003575447631888379, -0.044792503246552894, -0.9989899137764799],
-			[0.10770152645126597, 0.9931680875192705, -0.04491693593046672],
-			[0.9941768441149182, -0.10775333677534978, 0.0012732004866391048],
-		],
-		fy: 1164.6601287484507,
-		fx: 1159.5880733038064,
-	},
-	{
-		id: 9,
-		img_name: "00073",
-		width: 1959,
-		height: 1090,
-		position: [3.264984351114202, 0.078974937336732, 1.0117200284114904],
-		rotation: [
-			[-0.026919994628162257, -0.1565891128261527, -0.9872968974090509],
-			[0.08444552208239385, 0.983768234577625, -0.1583319754069128],
-			[0.9960643893290491, -0.0876350978794554, -0.013259786205163005],
-		],
-		fy: 1164.6601287484507,
-		fx: 1159.5880733038064,
-	},
+	}
 ];
 
 function DynamicCamera(orbitEl, zIsUp, {
@@ -412,6 +274,10 @@ function getShaderGlsl(nSphericalHarmonics = 0) {
 				`;
 			}
 
+			// const colorPost = "";
+			const colorPost = "activation = activation * 5.0;";
+			// const colorPost = "activation = activation - 0.5;";
+
 			let tail = '';
 			for (let i = 1; i < nSphericalHarmonics; ++i)
 				tail += `activation += (${shFormula[i]}) * sh${i};
@@ -421,6 +287,7 @@ function getShaderGlsl(nSphericalHarmonics = 0) {
 			vec3 getColor(vec3 ray) {
 					vec3 activation = (${shFormula[0]}) * sh0;
 					${tail}
+					${colorPost}
 					return 1.0 / (1.0 + exp(-activation));
 			}
 			`;
@@ -1092,207 +959,20 @@ async function main() {
 		}
 	};
 
-	let activeKeys = [];
-
-	window.addEventListener("keydown", (e) => {
-		// if (document.activeElement != document.body) return;
-		carousel = false;
-		if (!activeKeys.includes(e.key)) activeKeys.push(e.key);
-		if (/\d/.test(e.key)) {
-			viewMatrix = getViewMatrix(cameras[parseInt(e.key)]);
-		}
-		if (e.key == "v") {
-			location.hash =
-				"#" +
-				JSON.stringify(
-					viewMatrix.map((k) => Math.round(k * 100) / 100),
-				);
-		} else if (e.key === "p") {
-			carousel = true;
-		}
-	});
-	window.addEventListener("keyup", (e) => {
-		activeKeys = activeKeys.filter((k) => k !== e.key);
-	});
-	window.addEventListener("blur", () => {
-		activeKeys = [];
-	});
-
 	window.addEventListener(
 		"wheel",
 		(e) => {
-			carousel = false;
 			e.preventDefault();
-			const lineHeight = 10;
-			const scale =
-				e.deltaMode == 1
-					? lineHeight
-					: e.deltaMode == 2
-					? innerHeight
-					: 1;
-			let inv = invert4(viewMatrix);
-			if (e.shiftKey) {
-				inv = translate4(
-					inv,
-					(e.deltaX * scale) / innerWidth,
-					(e.deltaY * scale) / innerHeight,
-					0,
-				);
-			} else if (e.ctrlKey || e.metaKey) {
-				// inv = rotate4(inv,  (e.deltaX * scale) / innerWidth,  0, 0, 1);
-				// inv = translate4(inv,  0, (e.deltaY * scale) / innerHeight, 0);
-				let preY = inv[13];
-				inv = translate4(
-					inv,
-					0,
-					0,
-					(-10 * (e.deltaY * scale)) / innerHeight,
-				);
-				inv[13] = preY;
-			} else {
-				let d = 4;
-				inv = translate4(inv, 0, 0, d);
-				inv = rotate4(inv, -(e.deltaX * scale) / innerWidth, 0, 1, 0);
-				inv = rotate4(inv, (e.deltaY * scale) / innerHeight, 1, 0, 0);
-				inv = translate4(inv, 0, 0, -d);
-			}
-
 			viewMatrix = dyncam.getViewMatrix();
 		},
 		{ passive: false },
 	);
-
-	let startX, startY, down;
-	canvas.addEventListener("mousedown", (e) => {
-		carousel = false;
-		e.preventDefault();
-		startX = e.clientX;
-		startY = e.clientY;
-		down = e.ctrlKey || e.metaKey ? 2 : 1;
-	});
-	canvas.addEventListener("contextmenu", (e) => {
-		carousel = false;
-		e.preventDefault();
-		startX = e.clientX;
-		startY = e.clientY;
-		down = 2;
-	});
 
 	canvas.addEventListener("mousemove", (e) => {
 		e.preventDefault();
-		if (down == 1) {
-			viewMatrix = dyncam.getViewMatrix();
-		} else if (down == 2) {
-			viewMatrix = dyncam.getViewMatrix();
-		}
-	});
-	canvas.addEventListener("mouseup", (e) => {
-		e.preventDefault();
-		down = false;
-		startX = 0;
-		startY = 0;
+		viewMatrix = dyncam.getViewMatrix();
 	});
 
-	let altX = 0,
-		altY = 0;
-	canvas.addEventListener(
-		"touchstart",
-		(e) => {
-			e.preventDefault();
-			if (e.touches.length === 1) {
-				carousel = false;
-				startX = e.touches[0].clientX;
-				startY = e.touches[0].clientY;
-				down = 1;
-			} else if (e.touches.length === 2) {
-				// console.log('beep')
-				carousel = false;
-				startX = e.touches[0].clientX;
-				altX = e.touches[1].clientX;
-				startY = e.touches[0].clientY;
-				altY = e.touches[1].clientY;
-				down = 1;
-			}
-		},
-		{ passive: false },
-	);
-	canvas.addEventListener(
-		"touchmove",
-		(e) => {
-			e.preventDefault();
-			if (e.touches.length === 1 && down) {
-				let inv = invert4(viewMatrix);
-				let dx = (4 * (e.touches[0].clientX - startX)) / innerWidth;
-				let dy = (4 * (e.touches[0].clientY - startY)) / innerHeight;
-
-				let d = 4;
-				inv = translate4(inv, 0, 0, d);
-				// inv = translate4(inv,  -x, -y, -z);
-				// inv = translate4(inv,  x, y, z);
-				inv = rotate4(inv, dx, 0, 1, 0);
-				inv = rotate4(inv, -dy, 1, 0, 0);
-				inv = translate4(inv, 0, 0, -d);
-
-				viewMatrix = invert4(inv);
-
-				startX = e.touches[0].clientX;
-				startY = e.touches[0].clientY;
-			} else if (e.touches.length === 2) {
-				// alert('beep')
-				const dtheta =
-					Math.atan2(startY - altY, startX - altX) -
-					Math.atan2(
-						e.touches[0].clientY - e.touches[1].clientY,
-						e.touches[0].clientX - e.touches[1].clientX,
-					);
-				const dscale =
-					Math.hypot(startX - altX, startY - altY) /
-					Math.hypot(
-						e.touches[0].clientX - e.touches[1].clientX,
-						e.touches[0].clientY - e.touches[1].clientY,
-					);
-				const dx =
-					(e.touches[0].clientX +
-						e.touches[1].clientX -
-						(startX + altX)) /
-					2;
-				const dy =
-					(e.touches[0].clientY +
-						e.touches[1].clientY -
-						(startY + altY)) /
-					2;
-				let inv = invert4(viewMatrix);
-				// inv = translate4(inv,  0, 0, d);
-				inv = rotate4(inv, dtheta, 0, 0, 1);
-
-				inv = translate4(inv, -dx / innerWidth, -dy / innerHeight, 0);
-
-				let preY = inv[13];
-				inv = translate4(inv, 0, 0, 3 * (1 - dscale));
-				inv[13] = preY;
-
-				viewMatrix = invert4(inv);
-
-				startX = e.touches[0].clientX;
-				altX = e.touches[1].clientX;
-				startY = e.touches[0].clientY;
-				altY = e.touches[1].clientY;
-			}
-		},
-		{ passive: false },
-	);
-	canvas.addEventListener(
-		"touchend",
-		(e) => {
-			e.preventDefault();
-			down = false;
-			startX = 0;
-			startY = 0;
-		},
-		{ passive: false },
-	);
-
-	let jumpDelta = 0;
 	let vertexCount = 0;
 
 	let lastFrame = 0;
@@ -1373,13 +1053,6 @@ async function main() {
 			fr.readAsArrayBuffer(file);
 		}
 	};
-
-	window.addEventListener("hashchange", (e) => {
-		try {
-			viewMatrix = JSON.parse(decodeURIComponent(location.hash.slice(1)));
-			carousel = false;
-		} catch (err) {}
-	});
 
 	const preventDefault = (e) => {
 		e.preventDefault();
