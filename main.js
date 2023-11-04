@@ -50,6 +50,24 @@ function DynamicCamera(orbitEl, zIsUp, {
     changed = false;
     return was;
   };
+  
+  function getTargetCoordinatesActual() {
+    return [
+      orbitControls.target.x + target[0],
+      -orbitControls.target.z + target[1],
+      orbitControls.target.y + target[2]
+    ];
+  }
+  
+  this.getCameraTarget = () => {
+    const t = getTargetCoordinatesActual();
+    if (zIsUp) {
+      return { x: t[0], y: t[1], z: t[2] };
+    } else {
+      // ugly
+      return { x: t[0], y: -t[2], z: t[1] };
+    }
+  };
 
   this.getViewMatrix = () => {
     const a1 = -orbitControls.getAzimuthalAngle();
@@ -66,10 +84,7 @@ function DynamicCamera(orbitEl, zIsUp, {
     const dirFwd = [0, Math.cos(a2), -Math.sin(a2)];
     const dirRight = [1, 0, 0];
     const dirDown = [0, -Math.sin(a2), -Math.cos(a2)];
-    const trg = [
-      orbitControls.target.x + target[0],
-      -orbitControls.target.z + target[1],
-      orbitControls.target.y + target[2]];
+    const trg = getTargetCoordinatesActual();
 
     const camZ = applyRotAzimuth(dirFwd);
     const pos = [-camZ[0] * d + trg[0], -camZ[1] * d + trg[1], -camZ[2] * d + trg[2]];
@@ -111,6 +126,58 @@ function DynamicCamera(orbitEl, zIsUp, {
 
 		return invert4(camToWorld);
   };
+}
+function createDatGui(onBallUpdate, cameraControls) {
+
+  // Function to be controlled
+  const settings = {
+      bgColor: '#000000',
+		  ballX: 0.0,
+		  ballY: 0.0,
+		  ballZ: 0.0,
+		  ballRadius: 0
+  };
+
+
+	// Function to change the background color
+	function changeBackgroundColor(color) {
+	    document.body.style.backgroundColor = color;
+	}
+
+	// Create a new dat.GUI instance
+	const gui = new dat.GUI();
+
+	// Add a color controller
+	const colorController = gui.addColor(settings, 'bgColor');
+
+	// Listen to changes on the color controller
+	colorController.onChange(function(value) {
+	    changeBackgroundColor(value);
+	});
+
+	const RANGE = 10;
+	['X', 'Y', 'Z'].forEach(c => {
+			gui.add(settings, `ball${c}`, -RANGE, RANGE).step(RANGE/1000).onChange(() => onBallUpdate(settings));
+	});
+	
+	gui.add(settings, 'ballRadius', 0, RANGE).step(RANGE/500).onChange(() => onBallUpdate(settings));
+	
+	
+	function setBallCenterToCameraTarget() {
+	  const center = cameraControls.getCameraTarget();
+    settings.ballX = center.x;
+    settings.ballY = center.y;
+    settings.ballZ = center.z;
+    // Update GUI display for each controller
+    for (let i in gui.__controllers) {
+      gui.__controllers[i].updateDisplay();
+    }
+    onBallUpdate(settings);
+  }
+	
+	gui.add({ resetCertain: setBallCenterToCameraTarget }, 'resetCertain').name('Set to camera target');
+
+	changeBackgroundColor(settings.color);
 }
 
 const camera = cameras[0];
@@ -405,13 +472,39 @@ function createWorker(self) {
 	let lastProj = [];
 	let depthIndex = new Uint32Array();
 	let sphericalHarmonics;
+	let settings = {};
 
 	function getFloatRowLength() {
 	    return 3 + 3 + (sphericalHarmonics ? (3 * sphericalHarmonics.nPerChannel) : 0);
 	}
 
 	function getRowLength() {
-        return getFloatRowLength() * 4 + 4 + 4;
+      return getFloatRowLength() * 4 + 4 + 4;
+	}
+
+	function acceptSplat({ x, y, z }) {
+	    const r = settings.ballRadius;
+	    if (!r) return true;
+	    const dx = x - settings.ballX;
+	    const dy = y - settings.ballY;
+	    const dz = z - settings.ballZ;
+			return dx*dx + dy*dy + dz*dz < r*r;
+	}
+
+	function runFilter(floatBuffer, stride, length) {
+			let n = 0;
+			const mask = Array.from({ length }, (_, i) => {
+		    const x = floatBuffer[stride * i + 0];
+		    const y = floatBuffer[stride * i + 1];
+		    const z = floatBuffer[stride * i + 2];
+
+		    if (acceptSplat({ x, y, z })) {
+			    n++;
+			    return true;
+		    }
+		    return false;
+	    });
+	    return { n, mask };
 	}
 
 	const runSort = (viewProj) => {
@@ -426,19 +519,21 @@ function createWorker(self) {
 		const f_buffer = new Float32Array(buffer);
 		const u_buffer = new Uint8Array(buffer);
 
-		const covA = new Float32Array(3 * vertexCount);
-		const covB = new Float32Array(3 * vertexCount);
+		const { n, mask } = runFilter(f_buffer, fBufStride, vertexCount);
 
-		const center = new Float32Array(3 * vertexCount);
-		const color = new Float32Array(4 * vertexCount);
+		const covA = new Float32Array(3 * n);
+		const covB = new Float32Array(3 * n);
+
+		const center = new Float32Array(3 * n);
+		const color = new Float32Array(4 * n);
 
 		let shBuffers;
 
 		if (sphericalHarmonics) {
-		    shBuffers = Array.from({ length: sphericalHarmonics.nPerChannel }, (_, i) => new Float32Array(3 * vertexCount));
+		    shBuffers = Array.from({ length: sphericalHarmonics.nPerChannel }, (_, i) => new Float32Array(3 * n));
 		}
 
-		if (depthIndex.length == vertexCount) {
+		if (depthIndex.length == n) {
 			let dot =
 				lastProj[2] * viewProj[2] +
 				lastProj[6] * viewProj[6] +
@@ -468,18 +563,23 @@ function createWorker(self) {
 		let depthInv = (256 * 256) / (maxDepth - minDepth);
 		let counts0 = new Uint32Array(256*256);
 		for (let i = 0; i < vertexCount; i++) {
-			sizeList[i] = ((sizeList[i] - minDepth) * depthInv) | 0;
-			counts0[sizeList[i]]++;
+			if (mask[i]) {
+					sizeList[i] = ((sizeList[i] - minDepth) * depthInv) | 0;
+					counts0[sizeList[i]]++;
+			}
 		}
 		let starts0 = new Uint32Array(256*256);
 		for (let i = 1; i < 256*256; i++) starts0[i] = starts0[i - 1] + counts0[i - 1];
-		depthIndex = new Uint32Array(vertexCount);
-		for (let i = 0; i < vertexCount; i++) depthIndex[starts0[sizeList[i]]++] = i;
+		depthIndex = new Uint32Array(n);
+		for (let i = 0; i < vertexCount; i++) {
+				if (mask[i])
+						depthIndex[starts0[sizeList[i]]++] = i;
+		}
 
 
 		lastProj = viewProj;
 		// console.timeEnd("sort");
-		for (let j = 0; j < vertexCount; j++) {
+		for (let j = 0; j < n; j++) {
 			const i = depthIndex[j];
 
 			center[3 * j + 0] = f_buffer[fBufStride * i + 0];
@@ -739,7 +839,11 @@ function createWorker(self) {
 
 	let sortRunning;
 	self.onmessage = (e) => {
-		if (e.data.ply) {
+	  if (e.data.settings) {
+	    settings = e.data.settings;
+	    console.log({settings});
+	    throttledSort();
+	  } else if (e.data.ply) {
 			vertexCount = 0;
 			runSort(viewProj);
 			buffer = processPlyBuffer(e.data.ply);
@@ -978,6 +1082,8 @@ async function main() {
 	let lastFrame = 0;
 	let avgFps = 0;
 	let start = 0;
+	
+  createDatGui(settings => worker.postMessage({ settings }), dyncam);
 
 	const frame = (now) => {
 		let actualViewMatrix = dyncam.getViewMatrix();
