@@ -311,7 +311,7 @@ function translate4(a, x, y, z) {
   ];
 }
 
-function getShaderGlsl(nSphericalHarmonics = 0) {
+function getShaderGlsl(nSphericalHarmonics = 0, extraContrast = 1.0) {
     let shAttributesGlsl = "";
     let getColorGlsl = "";
     let callGetColorGlsl = "color";
@@ -342,8 +342,7 @@ function getShaderGlsl(nSphericalHarmonics = 0) {
       }
 
       // const colorPost = "";
-      const colorPost = "activation = activation * 5.0;";
-      // const colorPost = "activation = activation - 0.5;";
+      const colorPost = `activation = activation * float(${extraContrast});`;
 
       let tail = '';
       for (let i = 1; i < nSphericalHarmonics; ++i)
@@ -933,7 +932,8 @@ async function main() {
   const gl = canvas.getContext("webgl");
   const ext = gl.getExtension("ANGLE_instanced_arrays");
 
-  const shaderSource = getShaderGlsl(sphericalHarmonics.keep ? sphericalHarmonics.nRendered : 0);
+  const contrast = params.get('contrast') ? Number(params.get('contrast')) : 1.0;
+  const shaderSource = getShaderGlsl(sphericalHarmonics.keep ? sphericalHarmonics.nRendered : 0, contrast);
 
   const vertexShader = gl.createShader(gl.VERTEX_SHADER);
   gl.shaderSource(vertexShader, shaderSource.vert);
