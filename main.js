@@ -132,6 +132,7 @@ function createDatGui(onBallUpdate, cameraControls) {
   // Function to be controlled
   const settings = {
       bgColor: '#000000',
+      fakeColors: false,
       ballX: 0.0,
       ballY: 0.0,
       ballZ: 0.0,
@@ -149,6 +150,8 @@ function createDatGui(onBallUpdate, cameraControls) {
 
   // Add a color controller
   const colorController = gui.addColor(settings, 'bgColor');
+  
+  gui.add(settings, 'fakeColors').onChange(() => onBallUpdate(settings));
 
   // Listen to changes on the color controller
   colorController.onChange(function(value) {
@@ -351,6 +354,7 @@ function getShaderGlsl(nSphericalHarmonics = 0, extraContrast = 1.0) {
 
       getColorGlsl = `
       vec3 getColor(vec3 ray) {
+          if (length(color.rgb - vec3(0, 1, 0)) == 0.0) return vec3(1, 0, 1);
           vec3 activation = (${shFormula[0]}) * sh0;
           ${tail}
           ${colorPost}
@@ -445,13 +449,18 @@ function getShaderGlsl(nSphericalHarmonics = 0, extraContrast = 1.0) {
 
     varying vec4 vColor;
     varying vec2 vPosition;
+    
+    float len2(vec3 c) { return dot(c, c); }
 
     void main () {
         float A = -dot(vPosition, vPosition);
         if (A < -4.0) discard;
         float B = exp(A) * vColor.a;
-        // gl_FragColor = vec4(B * vec3(vPosition, 1.0), B);
-        gl_FragColor = vec4(B * vColor.rgb, B);
+        if (len2(vColor.rgb - vec3(1, 0, 1)) == 0.0) {
+            gl_FragColor = vec4(B * vec3(vPosition, 1.0), B);
+        } else {
+            gl_FragColor = vec4(B * vColor.rgb, B);
+        }
     }
     `;
 
@@ -585,10 +594,9 @@ function createWorker(self) {
       center[3 * j + 1] = f_buffer[fBufStride * i + 1];
       center[3 * j + 2] = f_buffer[fBufStride * i + 2];
 
-      color[4 * j + 0] = u_buffer[uBufStride * i + uBufOffset + 0] / 255;
-      color[4 * j + 1] = u_buffer[uBufStride * i + uBufOffset + 1] / 255;
-      color[4 * j + 2] = u_buffer[uBufStride * i + uBufOffset + 2] / 255;
-      color[4 * j + 3] = u_buffer[uBufStride * i + uBufOffset + 3] / 255;
+      for (let jj = 0; jj < 4; ++jj) {
+        color[4 * j + jj] = (settings.fakeColors && jj < 3) ? (jj % 2) : (u_buffer[uBufStride * i + uBufOffset + jj] / 255);
+      }
 
       let scale = [
         f_buffer[fBufStride * i + 3 + 0],
