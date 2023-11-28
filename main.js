@@ -367,6 +367,7 @@ function getShaderGlsl(nSphericalHarmonics = 0, extraContrast = 1.0) {
 
     const vertexShaderSource = `
     precision mediump float;
+    uniform float time; //
     attribute vec2 position;
 
     attribute vec4 color;
@@ -427,7 +428,8 @@ function getShaderGlsl(nSphericalHarmonics = 0, extraContrast = 1.0) {
 
         float mid = 0.5 * (diagonal1 + diagonal2);
         float radius = length(vec2((diagonal1 - diagonal2) / 2.0, offDiagonal));
-        float lambda1 = mid + radius;
+        float radiusModifier = 1.0 + 0.2 * sin(time * 2.0 * 3.14159); // Oscillation factor
+        float lambda1 = mid + radius * radiusModifier;
         float lambda2 = max(mid - radius, 0.1);
         vec2 diagonalVector = normalize(vec2(offDiagonal, lambda1 - diagonal1));
         vec2 v1 = min(sqrt(2.0 * lambda1), 1024.0) * diagonalVector;
@@ -1093,7 +1095,12 @@ async function main() {
   
   createDatGui(settings => worker.postMessage({ settings }), dyncam);
 
+  const u_time = gl.getUniformLocation(program, "time");
+  const startTime = performance.now();
+
   const frame = (now) => {
+    const elapsedTime = (now - startTime) / 1000.0; // Convert to seconds
+    gl.uniform1f(u_time, elapsedTime);
     let actualViewMatrix = dyncam.getViewMatrix();
     const viewProj = multiply4(projectionMatrix, actualViewMatrix);
     worker.postMessage({ view: viewProj });
@@ -1130,7 +1137,7 @@ async function main() {
     if (/\.json$/i.test(file.name)) {
       fr.onload = () => {
         cameras = JSON.parse(fr.result);
-        viewMatrix = getViewMatrix(cameras[0]);
+        viewMatrix = getViewMatrix(cameras[10]);
         projectionMatrix = getProjectionMatrix(
           camera.fx / downsample,
           camera.fy / downsample,
