@@ -1,6 +1,6 @@
 # WebGL Gaussian Splat Viewer
 
-_Spectacular AI fork_. See original README at https://github.com/antimatter15/splat/blob/main/README.md
+Ana's MAT 200C fork (from _Spectacular AI fork_) See original README at https://github.com/antimatter15/splat/blob/main/README.md
 
 ## Usage
 
